@@ -459,7 +459,9 @@ export class GeminiChat {
       : this.history;
     // Deep copy the history to avoid mutating the history outside of the
     // chat session.
-    return structuredClone(history);
+    // Performance optimization: JSON.parse/JSON.stringify is faster than
+    // structuredClone for large arrays in V8.
+    return JSON.parse(JSON.stringify(history));
   }
 
   /**

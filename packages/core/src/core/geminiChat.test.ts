@@ -1627,4 +1627,112 @@ describe('GeminiChat', () => {
       ]);
     });
   });
+
+  describe('getHistory immutability', () => {
+    it('should not allow external array mutation to affect internal history', () => {
+      chat.setHistory([
+        { role: 'user', parts: [{ text: 'hello' }] },
+        { role: 'model', parts: [{ text: 'hi there' }] },
+      ]);
+
+      const history = chat.getHistory();
+      history.push({ role: 'user', parts: [{ text: 'new message' }] });
+
+      const newHistory = chat.getHistory();
+      expect(newHistory.length).toBe(2);
+    });
+
+    it('should not allow external object mutation to affect internal history', () => {
+      chat.setHistory([
+        { role: 'user', parts: [{ text: 'hello' }] },
+        { role: 'model', parts: [{ text: 'hi there' }] },
+      ]);
+
+      const history = chat.getHistory();
+      (history[0] as Content).role = 'modified';
+
+      const newHistory = chat.getHistory();
+      expect(newHistory[0]?.role).toBe('user');
+    });
+
+    it('should not allow nested object mutation to affect internal history', () => {
+      chat.setHistory([{ role: 'user', parts: [{ text: 'original text' }] }]);
+
+      const history = chat.getHistory();
+      if (history[0]?.parts?.[0] && 'text' in history[0].parts[0]) {
+        history[0].parts[0].text = 'modified text';
+      }
+
+      const newHistory = chat.getHistory();
+      expect((newHistory[0]?.parts?.[0] as { text: string })?.text).toBe(
+        'original text',
+      );
+    });
+
+    it('should handle curated history immutability', () => {
+      chat.setHistory([
+        { role: 'user', parts: [{ text: 'call function' }] },
+        {
+          role: 'model',
+          parts: [{ functionCall: { name: 'test', args: {} } }],
+        },
+        {
+          role: 'user',
+          parts: [{ functionResponse: { name: 'test', response: {} } }],
+        },
+        { role: 'model', parts: [{ text: 'result' }] },
+      ]);
+
+      const curatedHistory = chat.getHistory(true);
+      expect(curatedHistory.length).toBeLessThanOrEqual(4);
+
+      curatedHistory.push({ role: 'user', parts: [{ text: 'new' }] });
+
+      const newCuratedHistory = chat.getHistory(true);
+      expect(newCuratedHistory.length).toBeLessThanOrEqual(4);
+    });
+
+    it('should work correctly when used with spread operator', () => {
+      chat.setHistory([
+        { role: 'user', parts: [{ text: 'hello' }] },
+        { role: 'model', parts: [{ text: 'hi' }] },
+      ]);
+
+      const newEntry: Content = { role: 'user', parts: [{ text: 'new' }] };
+      const combined = [...chat.getHistory(true), newEntry];
+
+      expect(combined.length).toBe(3);
+      expect(combined[2]).toBe(newEntry);
+      expect(chat.getHistory().length).toBe(2);
+    });
+  });
+
+  // Performance benchmark - skipped by default as it's for monitoring
+  describe('getHistory performance', () => {
+    it.skip('should be faster than structuredClone for large histories', () => {
+      const largeHistory: Content[] = [];
+      for (let i = 0; i < 100; i++) {
+        largeHistory.push({
+          role: 'user',
+          parts: [{ text: `User message ${i}` }],
+        });
+        largeHistory.push({
+          role: 'model',
+          parts: [{ text: `Model response ${i}` }],
+        });
+      }
+      chat.setHistory(largeHistory);
+
+      const iterations = 100;
+      const start = performance.now();
+      for (let i = 0; i < iterations; i++) {
+        chat.getHistory();
+      }
+      const end = performance.now();
+      const avgTime = (end - start) / iterations;
+
+      // The optimized version should be < 5ms for 200 items
+      expect(avgTime).toBeLessThan(5);
+    });
+  });
 });

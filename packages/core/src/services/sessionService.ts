@@ -220,21 +220,28 @@ export class SessionService {
     const chatsDir = this.getChatsDir();
 
     // Get all valid session files (matching UUID pattern) with their stats
+    // Performance optimization: Use async fs operations to avoid blocking the event loop
     let files: Array<{ name: string; mtime: number }> = [];
     try {
-      const fileNames = fs.readdirSync(chatsDir);
-      for (const name of fileNames) {
-        // Only process files matching session file pattern
-        if (!SESSION_FILE_PATTERN.test(name)) continue;
-        const filePath = path.join(chatsDir, name);
-        try {
-          const stats = fs.statSync(filePath);
-          files.push({ name, mtime: stats.mtimeMs });
-        } catch {
-          // Skip files we can't stat
-          continue;
-        }
-      }
+      const fileNames = await fs.promises.readdir(chatsDir);
+
+      // Use Promise.all for parallel stat operations
+      const statPromises = fileNames
+        .filter((name) => SESSION_FILE_PATTERN.test(name))
+        .map(async (name) => {
+          const filePath = path.join(chatsDir, name);
+          try {
+            const stats = await fs.promises.stat(filePath);
+            return { name, mtime: stats.mtimeMs };
+          } catch {
+            return null;
+          }
+        });
+
+      const statResults = await Promise.all(statPromises);
+      files = statResults.filter(
+        (result): result is { name: string; mtime: number } => result !== null,
+      );
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
         return { items: [], hasMore: false };
@@ -459,7 +466,7 @@ export class SessionService {
     }
 
     const lastMessage = messages[messages.length - 1];
-    const stats = fs.statSync(filePath);
+    const stats = await fs.promises.stat(filePath);
 
     const conversation: ConversationRecord = {
       sessionId: firstRecord.sessionId,

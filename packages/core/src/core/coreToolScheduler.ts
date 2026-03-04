@@ -1128,6 +1128,13 @@ export class CoreToolScheduler {
         (call) => call.status === 'scheduled',
       );
 
+      // TODO: Parallel execution optimization
+      // Currently executing sequentially to preserve abort behavior:
+      // - Tools scheduled after an abort should be cancelled
+      // - Long-running tools can be interrupted mid-execution
+      //
+      // Future optimization: Execute read-only tools in parallel,
+      // while keeping write/shell tools sequential.
       for (const toolCall of callsToExecute) {
         await this.executeSingleToolCall(toolCall, signal);
       }
