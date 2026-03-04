@@ -57,6 +57,43 @@ export class FileDiscoveryService {
   }
 
   /**
+   * Filters a list of file paths based on git ignore rules using parallel processing
+   * This method is more efficient for large lists of files
+   */
+  async filterFilesParallel(
+    filePaths: string[],
+    options: FilterFilesOptions = {
+      respectGitIgnore: true,
+      respectQwenIgnore: true,
+    },
+    batchSize: number = 100, // Process files in batches to avoid overwhelming
+  ): Promise<string[]> {
+    const results: string[][] = [];
+
+    for (let i = 0; i < filePaths.length; i += batchSize) {
+      const batch = filePaths.slice(i, i + batchSize);
+      const batchResults = await Promise.all(
+        batch.map(async (filePath) => {
+          if (options.respectGitIgnore && this.shouldGitIgnoreFile(filePath)) {
+            return null;
+          }
+          if (
+            options.respectQwenIgnore &&
+            this.shouldQwenIgnoreFile(filePath)
+          ) {
+            return null;
+          }
+          return filePath;
+        }),
+      );
+
+      results.push(batchResults.filter(Boolean) as string[]);
+    }
+
+    return results.flat();
+  }
+
+  /**
    * Filters a list of file paths based on git ignore rules and returns a report
    * with counts of ignored files.
    */
@@ -83,6 +120,54 @@ export class FileDiscoveryService {
       }
 
       filteredPaths.push(filePath);
+    }
+
+    return {
+      filteredPaths,
+      gitIgnoredCount,
+      qwenIgnoredCount,
+    };
+  }
+
+  /**
+   * Filters a list of file paths based on git ignore rules and returns a report
+   * with counts of ignored files using parallel processing
+   */
+  async filterFilesWithReportParallel(
+    filePaths: string[],
+    opts: FilterFilesOptions = {
+      respectGitIgnore: true,
+      respectQwenIgnore: true,
+    },
+    batchSize: number = 100,
+  ): Promise<FilterReport> {
+    let gitIgnoredCount = 0;
+    let qwenIgnoredCount = 0;
+    const filteredPaths: string[] = [];
+
+    for (let i = 0; i < filePaths.length; i += batchSize) {
+      const batch = filePaths.slice(i, i + batchSize);
+      const batchResults = await Promise.all(
+        batch.map(async (filePath) => {
+          if (opts.respectGitIgnore && this.shouldGitIgnoreFile(filePath)) {
+            return { type: 'git-ignored' as const };
+          }
+          if (opts.respectQwenIgnore && this.shouldQwenIgnoreFile(filePath)) {
+            return { type: 'qwen-ignored' as const };
+          }
+          return { type: 'included' as const, path: filePath };
+        }),
+      );
+
+      for (const result of batchResults) {
+        if (result.type === 'git-ignored') {
+          gitIgnoredCount++;
+        } else if (result.type === 'qwen-ignored') {
+          qwenIgnoredCount++;
+        } else if (result.type === 'included') {
+          filteredPaths.push(result.path);
+        }
+      }
     }
 
     return {

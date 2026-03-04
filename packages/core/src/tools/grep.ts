@@ -432,7 +432,7 @@ class GrepToolInvocation extends BaseToolInvocation<
         }
       }
 
-      // --- Strategy 3: Pure JavaScript Fallback ---
+      // --- Strategy 3: Pure JavaScript Fallback with Parallel Processing ---
       debugLogger.debug(
         'GrepLogic: Falling back to JavaScript grep implementation.',
       );
@@ -449,35 +449,57 @@ class GrepToolInvocation extends BaseToolInvocation<
         signal: options.signal,
       });
 
+      // Collect all file paths first
+      const filePaths: string[] = [];
+      for await (const filePath of filesIterator) {
+        filePaths.push(filePath as string);
+      }
+
+      // Process files in parallel batches
+      const batchSize = 10;
       const regex = new RegExp(pattern, 'i');
       const allMatches: GrepMatch[] = [];
 
-      for await (const filePath of filesIterator) {
-        const fileAbsolutePath = filePath as string;
-        try {
-          const content = await fsPromises.readFile(fileAbsolutePath, 'utf8');
-          const lines = content.split(/\r?\n/);
-          lines.forEach((line, index) => {
-            if (regex.test(line)) {
-              allMatches.push({
-                filePath:
-                  path.relative(absolutePath, fileAbsolutePath) ||
-                  path.basename(fileAbsolutePath),
-                lineNumber: index + 1,
-                line,
+      for (let i = 0; i < filePaths.length; i += batchSize) {
+        const batch = filePaths.slice(i, i + batchSize);
+        const batchMatches = await Promise.all(
+          batch.map(async (fileAbsolutePath) => {
+            try {
+              const content = await fsPromises.readFile(
+                fileAbsolutePath,
+                'utf8',
+              );
+              const lines = content.split(/\r?\n/);
+              const fileMatches: GrepMatch[] = [];
+
+              lines.forEach((line, index) => {
+                if (regex.test(line)) {
+                  fileMatches.push({
+                    filePath:
+                      path.relative(absolutePath, fileAbsolutePath) ||
+                      path.basename(fileAbsolutePath),
+                    lineNumber: index + 1,
+                    line,
+                  });
+                }
               });
+
+              return fileMatches;
+            } catch (readError: unknown) {
+              // Ignore errors like permission denied or file gone during read
+              if (!isNodeError(readError) || readError.code !== 'ENOENT') {
+                debugLogger.debug(
+                  `GrepLogic: Could not read/process ${fileAbsolutePath}: ${getErrorMessage(
+                    readError,
+                  )}`,
+                );
+              }
+              return [];
             }
-          });
-        } catch (readError: unknown) {
-          // Ignore errors like permission denied or file gone during read
-          if (!isNodeError(readError) || readError.code !== 'ENOENT') {
-            debugLogger.debug(
-              `GrepLogic: Could not read/process ${fileAbsolutePath}: ${getErrorMessage(
-                readError,
-              )}`,
-            );
-          }
-        }
+          }),
+        );
+
+        allMatches.push(...batchMatches.flat());
       }
 
       return allMatches;

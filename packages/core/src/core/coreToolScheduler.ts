@@ -1128,15 +1128,28 @@ export class CoreToolScheduler {
         (call) => call.status === 'scheduled',
       );
 
-      // TODO: Parallel execution optimization
-      // Currently executing sequentially to preserve abort behavior:
-      // - Tools scheduled after an abort should be cancelled
-      // - Long-running tools can be interrupted mid-execution
-      //
-      // Future optimization: Execute read-only tools in parallel,
-      // while keeping write/shell tools sequential.
-      for (const toolCall of callsToExecute) {
-        await this.executeSingleToolCall(toolCall, signal);
+      // Separate read-only tools from write/executable tools
+      const readOnlyCalls: ToolCall[] = [];
+      const writeOrExecCalls: ToolCall[] = [];
+
+      for (const call of callsToExecute) {
+        if (this.isReadOnlyTool(call.request.name)) {
+          readOnlyCalls.push(call);
+        } else {
+          writeOrExecCalls.push(call);
+        }
+      }
+
+      // Execute read-only tools in parallel
+      if (readOnlyCalls.length > 0) {
+        await Promise.all(
+          readOnlyCalls.map((call) => this.executeSingleToolCall(call, signal)),
+        );
+      }
+
+      // Execute write/executable tools sequentially to maintain order
+      for (const call of writeOrExecCalls) {
+        await this.executeSingleToolCall(call, signal);
       }
     }
   }
@@ -1397,5 +1410,21 @@ export class CoreToolScheduler {
         );
       }
     }
+  }
+
+  private isReadOnlyTool(toolName: string): boolean {
+    // Define which tools are read-only and can be executed in parallel
+    const readOnlyTools = [
+      'read-file',
+      'glob',
+      'grep_search',
+      'list_directory',
+      'save_memory',
+      'web_fetch',
+      'web_search',
+      'lsp',
+      'memory',
+    ];
+    return readOnlyTools.includes(toolName);
   }
 }
