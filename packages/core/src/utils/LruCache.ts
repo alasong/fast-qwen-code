@@ -35,7 +35,23 @@ export class LruCache<K, V> {
     this.cache.set(key, value);
   }
 
+  delete(key: K): boolean {
+    return this.cache.delete(key);
+  }
+
   clear(): void {
     this.cache.clear();
+  }
+
+  has(key: K): boolean {
+    return this.cache.has(key);
+  }
+
+  size(): number {
+    return this.cache.size;
+  }
+
+  keys(): IterableIterator<K> {
+    return this.cache.keys();
   }
 }
