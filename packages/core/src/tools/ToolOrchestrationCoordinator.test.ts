@@ -22,7 +22,7 @@ class MockToolInvocation extends BaseToolInvocation<object, ToolResult> {
     return 'Mock tool invocation';
   }
 
-  toolLocations(): ToolLocation[] {
+  override toolLocations(): Array<import('./tools.js').ToolLocation> {
     // 返回空数组表示不涉及特定文件路径
     return [];
   }
@@ -48,7 +48,7 @@ class MockTool extends BaseDeclarativeTool<object, ToolResult> {
     return new MockToolInvocation({});
   }
 
-  override toolLocations(): ToolLocation[] {
+  toolLocations(): Array<import('./tools.js').ToolLocation> {
     // 返回空数组表示不涉及特定文件路径
     return [];
   }
@@ -164,7 +164,7 @@ describe('ToolOrchestrationCoordinator', () => {
         return 'Error tool invocation';
       }
 
-      toolLocations(): ToolLocation[] {
+      override toolLocations(): Array<import('./tools.js').ToolLocation> {
         // 返回空数组表示不涉及特定文件路径
         return [];
       }
@@ -257,7 +257,7 @@ describe('ToolOrchestrationCoordinator', () => {
         return new FailingToolInvocation({});
       }
 
-      override toolLocations(): ToolLocation[] {
+      toolLocations(): Array<import('./tools.js').ToolLocation> {
         // 返回空数组表示不涉及特定文件路径
         return [];
       }
@@ -319,7 +319,7 @@ describe('ToolOrchestrationCoordinator', () => {
         return 'Flaky tool invocation';
       }
 
-      toolLocations(): ToolLocation[] {
+      override toolLocations(): Array<import('./tools.js').ToolLocation> {
         // 返回空数组表示不涉及特定文件路径
         return [];
       }
