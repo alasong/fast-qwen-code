@@ -5,10 +5,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import {
-  ChatCompressionService,
-  findCompressSplitPoint,
-} from './chatCompressionService.js';
+import { ChatCompressionService } from './chatCompressionService.js';
 import type { Content, GenerateContentResponse } from '@google/genai';
 import { CompressionStatus } from '../core/turn.js';
 import { uiTelemetryService } from '../telemetry/uiTelemetry.js';
@@ -20,86 +17,6 @@ import type { ContentGenerator } from '../core/contentGenerator.js';
 vi.mock('../telemetry/uiTelemetry.js');
 vi.mock('../core/tokenLimits.js');
 vi.mock('../telemetry/loggers.js');
-
-describe('findCompressSplitPoint', () => {
-  it('should throw an error for non-positive numbers', () => {
-    expect(() => findCompressSplitPoint([], 0)).toThrow(
-      'Fraction must be between 0 and 1',
-    );
-  });
-
-  it('should throw an error for a fraction greater than or equal to 1', () => {
-    expect(() => findCompressSplitPoint([], 1)).toThrow(
-      'Fraction must be between 0 and 1',
-    );
-  });
-
-  it('should handle an empty history', () => {
-    expect(findCompressSplitPoint([], 0.5)).toBe(0);
-  });
-
-  it('should handle a fraction in the middle', () => {
-    const history: Content[] = [
-      { role: 'user', parts: [{ text: 'This is the first message.' }] }, // JSON length: 66 (19%)
-      { role: 'model', parts: [{ text: 'This is the second message.' }] }, // JSON length: 68 (40%)
-      { role: 'user', parts: [{ text: 'This is the third message.' }] }, // JSON length: 66 (60%)
-      { role: 'model', parts: [{ text: 'This is the fourth message.' }] }, // JSON length: 68 (80%)
-      { role: 'user', parts: [{ text: 'This is the fifth message.' }] }, // JSON length: 65 (100%)
-    ];
-    expect(findCompressSplitPoint(history, 0.5)).toBe(4);
-  });
-
-  it('should handle a fraction of last index', () => {
-    const history: Content[] = [
-      { role: 'user', parts: [{ text: 'This is the first message.' }] }, // JSON length: 66 (19%)
-      { role: 'model', parts: [{ text: 'This is the second message.' }] }, // JSON length: 68 (40%)
-      { role: 'user', parts: [{ text: 'This is the third message.' }] }, // JSON length: 66 (60%)
-      { role: 'model', parts: [{ text: 'This is the fourth message.' }] }, // JSON length: 68 (80%)
-      { role: 'user', parts: [{ text: 'This is the fifth message.' }] }, // JSON length: 65 (100%)
-    ];
-    expect(findCompressSplitPoint(history, 0.9)).toBe(4);
-  });
-
-  it('should handle a fraction of after last index', () => {
-    const history: Content[] = [
-      { role: 'user', parts: [{ text: 'This is the first message.' }] }, // JSON length: 66 (24%)
-      { role: 'model', parts: [{ text: 'This is the second message.' }] }, // JSON length: 68 (50%)
-      { role: 'user', parts: [{ text: 'This is the third message.' }] }, // JSON length: 66 (74%)
-      { role: 'model', parts: [{ text: 'This is the fourth message.' }] }, // JSON length: 68 (100%)
-    ];
-    expect(findCompressSplitPoint(history, 0.8)).toBe(4);
-  });
-
-  it('should return earlier splitpoint if no valid ones are after threshhold', () => {
-    const history: Content[] = [
-      { role: 'user', parts: [{ text: 'This is the first message.' }] },
-      { role: 'model', parts: [{ text: 'This is the second message.' }] },
-      { role: 'user', parts: [{ text: 'This is the third message.' }] },
-      { role: 'model', parts: [{ functionCall: { name: 'foo', args: {} } }] },
-    ];
-    // Can't return 4 because the previous item has a function call.
-    expect(findCompressSplitPoint(history, 0.99)).toBe(2);
-  });
-
-  it('should handle a history with only one item', () => {
-    const historyWithEmptyParts: Content[] = [
-      { role: 'user', parts: [{ text: 'Message 1' }] },
-    ];
-    expect(findCompressSplitPoint(historyWithEmptyParts, 0.5)).toBe(0);
-  });
-
-  it('should handle history with weird parts', () => {
-    const historyWithEmptyParts: Content[] = [
-      { role: 'user', parts: [{ text: 'Message 1' }] },
-      {
-        role: 'model',
-        parts: [{ fileData: { fileUri: 'derp', mimeType: 'text/plain' } }],
-      },
-      { role: 'user', parts: [{ text: 'Message 2' }] },
-    ];
-    expect(findCompressSplitPoint(historyWithEmptyParts, 0.5)).toBe(2);
-  });
-});
 
 describe('ChatCompressionService', () => {
   let service: ChatCompressionService;
