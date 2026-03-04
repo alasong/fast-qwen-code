@@ -288,7 +288,7 @@ export class ToolOrchestrationCoordinator {
                 returnDisplay: (error as Error).message,
                 error: {
                   message: (error as Error).message,
-                  type: 'EXECUTION_ERROR' as const,
+                  type: undefined,
                 },
               },
               executionTime,
@@ -393,7 +393,7 @@ export class ToolOrchestrationCoordinator {
             returnDisplay: (error as Error).message,
             error: {
               message: (error as Error).message,
-              type: 'EXECUTION_ERROR' as const,
+              type: undefined,
             },
           },
           executionTime,
