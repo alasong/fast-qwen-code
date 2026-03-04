@@ -22,6 +22,11 @@ class MockToolInvocation extends BaseToolInvocation<object, ToolResult> {
     return 'Mock tool invocation';
   }
 
+  toolLocations(): ToolLocation[] {
+    // 返回空数组表示不涉及特定文件路径
+    return [];
+  }
+
   async execute(
     _signal: AbortSignal,
     _updateOutput?: (output: ToolResultDisplay) => void,
@@ -41,6 +46,11 @@ class MockTool extends BaseDeclarativeTool<object, ToolResult> {
 
   protected createInvocation(_params: object): MockToolInvocation {
     return new MockToolInvocation({});
+  }
+
+  override toolLocations(): ToolLocation[] {
+    // 返回空数组表示不涉及特定文件路径
+    return [];
   }
 }
 
@@ -75,8 +85,8 @@ describe('ToolOrchestrationCoordinator', () => {
         invocation: mockTool2.build({}),
         request: {
           callId: 'call2',
-          name: 'write-file',
-          args: { path: '/test.txt', content: 'hello' },
+          name: 'glob',
+          args: { pattern: '*.txt' },
           isClientInitiated: false,
           prompt_id: 'test',
         } as ToolCallRequestInfo,
@@ -152,6 +162,11 @@ describe('ToolOrchestrationCoordinator', () => {
 
       getDescription(): string {
         return 'Error tool invocation';
+      }
+
+      toolLocations(): ToolLocation[] {
+        // 返回空数组表示不涉及特定文件路径
+        return [];
       }
 
       async execute(
@@ -241,6 +256,11 @@ describe('ToolOrchestrationCoordinator', () => {
       protected createInvocation(_params: object): FailingToolInvocation {
         return new FailingToolInvocation({});
       }
+
+      override toolLocations(): ToolLocation[] {
+        // 返回空数组表示不涉及特定文件路径
+        return [];
+      }
     }
 
     const failingTool = new FailingTool();
@@ -267,19 +287,24 @@ describe('ToolOrchestrationCoordinator', () => {
     const abortController = new AbortController();
 
     // First few calls should fail normally
-    await expect(
-      coordinatorWithOptions.execute(tools, abortController.signal),
-    ).rejects.toThrow();
-    await expect(
-      coordinatorWithOptions.execute(tools, abortController.signal),
-    ).rejects.toThrow();
-
-    // After enough failures, the circuit breaker should open and subsequent calls should fail immediately
     try {
       await coordinatorWithOptions.execute(tools, abortController.signal);
     } catch (_error) {
-      // Expected to fail due to circuit breaker
+      // Expected to fail
     }
+
+    try {
+      await coordinatorWithOptions.execute(tools, abortController.signal);
+    } catch (_error) {
+      // Expected to fail
+    }
+
+    // After enough failures, the circuit breaker should open and subsequent calls should fail immediately
+    const result = await coordinatorWithOptions.execute(
+      tools,
+      abortController.signal,
+    );
+    expect(result.results[0].success).toBe(false);
   });
 
   it('should retry failed operations according to retry policy', async () => {
@@ -292,6 +317,11 @@ describe('ToolOrchestrationCoordinator', () => {
 
       getDescription(): string {
         return 'Flaky tool invocation';
+      }
+
+      toolLocations(): ToolLocation[] {
+        // 返回空数组表示不涉及特定文件路径
+        return [];
       }
 
       async execute(

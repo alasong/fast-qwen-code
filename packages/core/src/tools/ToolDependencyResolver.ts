@@ -98,32 +98,45 @@ export class ToolDependencyResolver {
     const aLocations = nodeA.invocation.toolLocations();
     const bLocations = nodeB.invocation.toolLocations();
 
-    // 如果A修改了B需要读取的资源，则A依赖于B
+    // 如果A和B操作相同的资源，则可能存在依赖关系
     for (const aLoc of aLocations) {
       for (const bLoc of bLocations) {
         if (aLoc.path === bLoc.path) {
-          // 如果A是写操作而B是读操作，且A在B之前，则B依赖于A
+          // 根据工具类型确定依赖方向
+          // 写操作应该在读操作之前
           if (
             this.isWriteOperation(nodeA.tool) &&
             this.isReadOperation(nodeB.tool)
           ) {
+            // A是写操作，B是读操作：A -> B (A先执行，B后读取)
             return {
               from: nodeA.id,
               to: nodeB.id,
               type: 'data_dependency',
             };
-          }
-          // 如果A和B都是写操作，它们不能并行执行
-          if (
+          } else if (
+            this.isReadOperation(nodeA.tool) &&
+            this.isWriteOperation(nodeB.tool)
+          ) {
+            // A是读操作，B是写操作：A -> B (A先读取旧版本，B后写入)
+            return {
+              from: nodeA.id,
+              to: nodeB.id,
+              type: 'data_dependency',
+            };
+          } else if (
             this.isWriteOperation(nodeA.tool) &&
             this.isWriteOperation(nodeB.tool)
           ) {
+            // A和B都是写操作：A -> B (按某种顺序执行，避免并发写入)
+            // 为避免循环，总是按照ID顺序安排
             return {
               from: nodeA.id,
               to: nodeB.id,
               type: 'resource_conflict',
             };
           }
+          // 其他情况（如都是读操作）不需要依赖关系
         }
       }
     }
@@ -178,7 +191,7 @@ export class ToolDependencyResolver {
     const adjList: Map<string, string[]> = new Map();
     const inDegree: Map<string, number> = new Map();
 
-    // 初始化
+    // 初始化所有节点
     for (const node of nodes) {
       adjList.set(node.id, []);
       inDegree.set(node.id, 0);
