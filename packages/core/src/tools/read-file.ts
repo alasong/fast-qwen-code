@@ -127,7 +127,9 @@ class ReadFileToolInvocation extends BaseToolInvocation<
 
     return {
       llmContent,
-      returnDisplay: result.returnDisplay || '',
+      returnDisplay: this.config.getQuietMode()
+        ? ''
+        : result.returnDisplay || '',
     };
   }
 }
@@ -222,5 +224,19 @@ export class ReadFileTool extends BaseDeclarativeTool<
     params: ReadFileToolParams,
   ): ToolInvocation<ReadFileToolParams, ToolResult> {
     return new ReadFileToolInvocation(this.config, params);
+  }
+
+  /**
+   * Convenience method to call the tool directly with parameters
+   */
+  async call(params: { path: string; offset?: number; limit?: number }): Promise<ToolResult> {
+    // Map the simplified params to the actual tool params
+    const toolParams: ReadFileToolParams = {
+      absolute_path: params.path,
+      offset: params.offset,
+      limit: params.limit,
+    };
+    const invocation = this.build(toolParams);
+    return invocation.execute(new AbortController().signal);
   }
 }

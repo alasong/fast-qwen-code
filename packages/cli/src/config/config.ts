@@ -156,6 +156,7 @@ export interface CliArgs {
   excludeTools: string[] | undefined;
   authType: string | undefined;
   channel: string | undefined;
+  quiet: boolean | undefined;
 }
 
 function normalizeOutputFormat(
@@ -436,6 +437,13 @@ export async function parseArguments(): Promise<CliArgs> {
           type: 'string',
           description: 'The format of the CLI output.',
           choices: ['text', 'json', 'stream-json'],
+        })
+        .option('quiet', {
+          alias: 'q',
+          type: 'boolean',
+          description:
+            'Enable quiet mode - suppresses non-error output from file operations and other tools.',
+          default: false,
         })
         .option('include-partial-messages', {
           type: 'boolean',
@@ -1032,6 +1040,7 @@ export async function loadCliConfig(
     lsp: {
       enabled: lspEnabled,
     },
+    quietMode: argv.quiet,
   });
 
   if (lspEnabled) {

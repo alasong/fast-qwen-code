@@ -50,6 +50,7 @@ import { LSTool } from '../tools/ls.js';
 import type { SendSdkMcpMessage } from '../tools/mcp-client.js';
 import { MemoryTool, setGeminiMdFilename } from '../tools/memoryTool.js';
 import { ReadFileTool } from '../tools/read-file.js';
+import { SetQuietModeTool } from '../tools/set-quiet-mode.js';
 import { canUseRipgrep } from '../utils/ripgrepUtils.js';
 import { RipGrepTool } from '../tools/ripGrep.js';
 import { ShellTool } from '../tools/shell.js';
@@ -379,6 +380,8 @@ export interface ConfigParameters {
   modelProvidersConfig?: ModelProvidersConfig;
   /** Warnings generated during configuration resolution */
   warnings?: string[];
+  /** Quiet mode - suppresses non-error output */
+  quietMode?: boolean;
 }
 
 function normalizeConfigOutputFormat(
@@ -519,6 +522,7 @@ export class Config {
   private readonly eventEmitter?: EventEmitter;
   private readonly channel: string | undefined;
   private readonly defaultFileEncoding: FileEncodingType;
+  private quietMode: boolean;
 
   constructor(params: ConfigParameters) {
     this.sessionId = params.sessionId ?? randomUUID();
@@ -633,6 +637,7 @@ export class Config {
     this.enableToolOutputTruncation = params.enableToolOutputTruncation ?? true;
     this.channel = params.channel;
     this.defaultFileEncoding = params.defaultFileEncoding ?? FileEncoding.UTF8;
+    this.quietMode = params.quietMode ?? false; // Default to false to maintain transparency
     this.storage = new Storage(this.targetDir);
     this.inputFormat = params.inputFormat ?? InputFormat.TEXT;
     this.fileExclusions = new FileExclusions(this);
@@ -1250,6 +1255,22 @@ export class Config {
     this.approvalMode = mode;
   }
 
+  /**
+   * Get the quiet mode setting.
+   * When enabled, suppresses non-error output from file operations and other tools.
+   */
+  getQuietMode(): boolean {
+    return this.quietMode;
+  }
+
+  /**
+   * Set the quiet mode setting at runtime.
+   * When enabled, suppresses non-error output from file operations and other tools.
+   */
+  setQuietMode(enabled: boolean): void {
+    this.quietMode = enabled;
+  }
+
   getInputFormat(): 'text' | 'stream-json' {
     return this.inputFormat;
   }
@@ -1716,6 +1737,7 @@ export class Config {
     registerCoreTool(GlobTool, this);
     registerCoreTool(EditTool, this);
     registerCoreTool(WriteFileTool, this);
+    registerCoreTool(SetQuietModeTool, this);
     registerCoreTool(ShellTool, this);
     registerCoreTool(MemoryTool);
     registerCoreTool(TodoWriteTool, this);

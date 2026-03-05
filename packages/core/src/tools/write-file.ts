@@ -321,7 +321,7 @@ class WriteFileToolInvocation extends BaseToolInvocation<
 
       return {
         llmContent: llmSuccessMessageParts.join(' '),
-        returnDisplay: displayResult,
+        returnDisplay: this.config.getQuietMode() ? '' : displayResult,
       };
     } catch (error) {
       // Capture detailed error information for debugging
@@ -356,7 +356,7 @@ class WriteFileToolInvocation extends BaseToolInvocation<
 
       return {
         llmContent: errorMsg,
-        returnDisplay: errorMsg,
+        returnDisplay: errorMsg, // Always show error messages, even in quiet mode
         error: {
           message: errorMsg,
           type: errorType,
@@ -442,6 +442,19 @@ export class WriteFileTool
     params: WriteFileToolParams,
   ): ToolInvocation<WriteFileToolParams, ToolResult> {
     return new WriteFileToolInvocation(this.config, params);
+  }
+
+  /**
+   * Convenience method to call the tool directly with parameters
+   */
+  async call(params: { path: string; content: string }): Promise<ToolResult> {
+    // Map the simplified params to the actual tool params
+    const toolParams: WriteFileToolParams = {
+      file_path: params.path,
+      content: params.content,
+    };
+    const invocation = this.build(toolParams);
+    return invocation.execute(new AbortController().signal);
   }
 
   getModifyContext(
