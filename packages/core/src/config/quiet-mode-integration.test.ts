@@ -42,7 +42,7 @@ describe('Quiet Mode Integration Tests', () => {
       cwd: tempDir,
       quietMode: false, // Start with quiet mode disabled
     };
-    
+
     config = new Config(configParams);
   });
 
@@ -50,7 +50,7 @@ describe('Quiet Mode Integration Tests', () => {
     // Clean up temporary files
     try {
       fs.rmSync(tempDir, { recursive: true, force: true });
-    } catch (e) {
+    } catch (_e) {
       // Ignore cleanup errors
     }
   });
@@ -58,16 +58,16 @@ describe('Quiet Mode Integration Tests', () => {
   it('should integrate quiet mode from CLI flag through to tool behavior', async () => {
     // Simulate CLI flag by setting quiet mode in config
     config.setQuietMode(true);
-    
+
     // Create tools with the config
     const readFileTool = new ReadFileTool(config);
     const writeFileTool = new WriteFileTool(config);
-    
+
     // Test that read operations are quiet
     const readResult = await readFileTool.call({ path: testFilePath });
     expect(readResult.returnDisplay).toBe('');
     expect(readResult.llmContent).toContain('initial content');
-    
+
     // Test that write operations are quiet
     const writeResult = await writeFileTool.call({
       path: testFilePath,
@@ -75,7 +75,7 @@ describe('Quiet Mode Integration Tests', () => {
     });
     expect(writeResult.returnDisplay).toBe('');
     expect(writeResult.llmContent).toContain('successfully');
-    
+
     // Verify the file was actually updated
     const updatedContent = fs.readFileSync(testFilePath, 'utf8');
     expect(updatedContent).toBe('updated content');
@@ -91,12 +91,18 @@ describe('Quiet Mode Integration Tests', () => {
 
     // Perform a read operation in normal mode
     let readResult = await readFileTool.call({ path: testFilePath });
-    expect(typeof readResult.returnDisplay === 'string' ? readResult.returnDisplay.length : 0).toBeGreaterThan(0);
+    expect(
+      typeof readResult.returnDisplay === 'string'
+        ? readResult.returnDisplay.length
+        : 0,
+    ).toBeGreaterThan(0);
 
     // Enable quiet mode dynamically
     const enableQuietResult = await setQuietModeTool.call({ enabled: true });
     expect(config.getQuietMode()).toBe(true);
-    expect(enableQuietResult.returnDisplay).toContain('Quiet mode has been enabled');
+    expect(enableQuietResult.returnDisplay).toContain(
+      'Quiet mode has been enabled',
+    );
 
     // Now perform a read operation in quiet mode
     readResult = await readFileTool.call({ path: testFilePath });
@@ -105,30 +111,40 @@ describe('Quiet Mode Integration Tests', () => {
     // Disable quiet mode dynamically
     const disableQuietResult = await setQuietModeTool.call({ enabled: false });
     expect(config.getQuietMode()).toBe(false);
-    expect(disableQuietResult.returnDisplay).toContain('Quiet mode has been disabled');
+    expect(disableQuietResult.returnDisplay).toContain(
+      'Quiet mode has been disabled',
+    );
 
     // Now perform a read operation in normal mode again
     readResult = await readFileTool.call({ path: testFilePath });
-    expect(typeof readResult.returnDisplay === 'string' ? readResult.returnDisplay.length : 0).toBeGreaterThan(0);
+    expect(
+      typeof readResult.returnDisplay === 'string'
+        ? readResult.returnDisplay.length
+        : 0,
+    ).toBeGreaterThan(0);
   });
 
   it('should handle error conditions properly in quiet mode', async () => {
     // Enable quiet mode
     config.setQuietMode(true);
-    
+
     const writeFileTool = new WriteFileTool(config);
-    
+
     // Try to write to an invalid path to trigger an error
     const invalidPath = path.join(testFilePath, 'invalid', 'path.txt'); // testFilePath is a file, not a directory
-    
+
     try {
       const result = await writeFileTool.call({
         path: invalidPath,
         content: 'test content',
       });
-      
+
       // If no exception was thrown, verify that error messages are still shown in quiet mode
-      expect(typeof result.returnDisplay === 'string' ? result.returnDisplay.length : 0).toBeGreaterThan(0);
+      expect(
+        typeof result.returnDisplay === 'string'
+          ? result.returnDisplay.length
+          : 0,
+      ).toBeGreaterThan(0);
       expect(result.error).toBeDefined();
     } catch (error) {
       // If an exception was thrown, that's also acceptable behavior
@@ -140,53 +156,67 @@ describe('Quiet Mode Integration Tests', () => {
     // Ensure quiet mode is disabled
     config.setQuietMode(false);
     expect(config.getQuietMode()).toBe(false);
-    
+
     const readFileTool = new ReadFileTool(config);
     const writeFileTool = new WriteFileTool(config);
-    
+
     // Read operation should show output
     const readResult = await readFileTool.call({ path: testFilePath });
-    expect(typeof readResult.returnDisplay === 'string' ? readResult.returnDisplay.length : 0).toBeGreaterThan(0);
-    
+    expect(
+      typeof readResult.returnDisplay === 'string'
+        ? readResult.returnDisplay.length
+        : 0,
+    ).toBeGreaterThan(0);
+
     // Write operation should show output
     const writeResult = await writeFileTool.call({
       path: path.join(tempDir, 'normal-mode-test.txt'),
       content: 'normal mode content',
     });
-    expect(typeof writeResult.returnDisplay === 'string' ? writeResult.returnDisplay.length : 0).toBeGreaterThan(0);
-    
+    expect(
+      typeof writeResult.returnDisplay === 'string'
+        ? writeResult.returnDisplay.length
+        : 0,
+    ).toBeGreaterThan(0);
+
     // Verify the file was created
-    expect(fs.existsSync(path.join(tempDir, 'normal-mode-test.txt'))).toBe(true);
+    expect(fs.existsSync(path.join(tempDir, 'normal-mode-test.txt'))).toBe(
+      true,
+    );
   });
 
   it('should maintain quiet mode state across different tools', async () => {
     // Enable quiet mode
     config.setQuietMode(true);
     expect(config.getQuietMode()).toBe(true);
-    
+
     const readFileTool = new ReadFileTool(config);
     const writeFileTool = new WriteFileTool(config);
     const setQuietModeTool = new SetQuietModeTool(config);
-    
+
     // Both tools should respect the quiet mode setting
     const readResult = await readFileTool.call({ path: testFilePath });
     const writeResult = await writeFileTool.call({
       path: path.join(tempDir, 'cross-tool-test.txt'),
       content: 'cross tool content',
     });
-    
+
     expect(readResult.returnDisplay).toBe('');
     expect(writeResult.returnDisplay).toBe('');
-    
+
     // Verify file was created despite quiet mode
     expect(fs.existsSync(path.join(tempDir, 'cross-tool-test.txt'))).toBe(true);
-    
+
     // Use the set quiet mode tool to disable it and verify state is shared
     await setQuietModeTool.call({ enabled: false });
     expect(config.getQuietMode()).toBe(false);
-    
+
     // Now tools should operate in normal mode
     const readResultNormal = await readFileTool.call({ path: testFilePath });
-    expect(typeof readResultNormal.returnDisplay === 'string' ? readResultNormal.returnDisplay.length : 0).toBeGreaterThan(0);
+    expect(
+      typeof readResultNormal.returnDisplay === 'string'
+        ? readResultNormal.returnDisplay.length
+        : 0,
+    ).toBeGreaterThan(0);
   });
 });

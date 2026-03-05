@@ -33,7 +33,7 @@ describe('Config Quiet Mode Initialization', () => {
     // Clean up temporary files
     try {
       fs.rmSync(tempDir, { recursive: true, force: true });
-    } catch (e) {
+    } catch (_e) {
       // Ignore cleanup errors
     }
   });
@@ -58,9 +58,9 @@ describe('Config Quiet Mode Initialization', () => {
       cwd: tempDir,
       quietMode: true,
     };
-    
+
     const config = new Config(configParams);
-    
+
     expect(config.getQuietMode()).toBe(true);
   });
 
@@ -71,9 +71,9 @@ describe('Config Quiet Mode Initialization', () => {
       cwd: tempDir,
       quietMode: false,
     };
-    
+
     const config = new Config(configParams);
-    
+
     expect(config.getQuietMode()).toBe(false);
   });
 
@@ -84,16 +84,16 @@ describe('Config Quiet Mode Initialization', () => {
       cwd: tempDir,
       quietMode: false,
     };
-    
+
     const config = new Config(configParams);
-    
+
     // Initially false
     expect(config.getQuietMode()).toBe(false);
-    
+
     // Change to true
     config.setQuietMode(true);
     expect(config.getQuietMode()).toBe(true);
-    
+
     // Change back to false
     config.setQuietMode(false);
     expect(config.getQuietMode()).toBe(false);
@@ -107,16 +107,16 @@ describe('Config Quiet Mode Initialization', () => {
       quietMode: true,
       approvalMode: ApprovalMode.DEFAULT, // Just setting another property to ensure independence
     };
-    
+
     const config = new Config(configParams);
-    
+
     // Verify quiet mode is set correctly
     expect(config.getQuietMode()).toBe(true);
-    
+
     // Verify we can change quiet mode without affecting other properties
     config.setQuietMode(false);
     expect(config.getQuietMode()).toBe(false);
-    
+
     // Note: We can't easily test that other properties remain unchanged without exposing them,
     // but the architecture suggests they should remain independent
   });

@@ -20,7 +20,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { WriteFileTool } from './write-file.js';
-import { Config } from '../config/config.js';
+import type { Config } from '../config/config.js';
 
 describe('WriteFileTool with Quiet Mode', () => {
   let tempDir: string;
@@ -44,13 +44,17 @@ describe('WriteFileTool with Quiet Mode', () => {
     // Create a mock config object with quiet mode functionality
     mockConfig = {
       getQuietMode: () => quietModeValue,
-      setQuietMode: (enabled: boolean) => { quietModeValue = enabled; },
+      setQuietMode: (enabled: boolean) => {
+        quietModeValue = enabled;
+      },
       targetDir: tempDir,
       getWorkspaceContext: vi.fn(() => mockWorkspaceContext),
       storage: {
         getProjectTempDir: vi.fn(() => path.join(tempDir, '.temp')),
-        getUserSkillsDir: vi.fn(() => path.join(os.homedir(), '.qwen', 'skills')),
-      } as any,
+        getUserSkillsDir: vi.fn(() =>
+          path.join(os.homedir(), '.qwen', 'skills'),
+        ),
+      } as unknown as Config['storage'],
       getFileService: vi.fn(() => ({
         shouldQwenIgnoreFile: vi.fn(() => false),
       })),
@@ -65,7 +69,7 @@ describe('WriteFileTool with Quiet Mode', () => {
         writeTextFile: vi.fn(() => Promise.resolve()), // Mock successful write
       })),
     } as unknown as Config;
-    
+
     writeFileTool = new WriteFileTool(mockConfig);
   });
 
@@ -73,7 +77,7 @@ describe('WriteFileTool with Quiet Mode', () => {
     // Clean up temporary files
     try {
       fs.rmSync(tempDir, { recursive: true, force: true });
-    } catch (e) {
+    } catch (_e) {
       // Ignore cleanup errors
     }
     vi.clearAllMocks();
@@ -86,28 +90,30 @@ describe('WriteFileTool with Quiet Mode', () => {
     const params = {
       path: testFilePath,
       content: 'test content',
-      
     };
 
     const result = await writeFileTool.call(params);
 
     // In normal mode, returnDisplay should contain information about the write operation
-    expect(typeof result.returnDisplay === 'string' ? result.returnDisplay.length : 0).toBeGreaterThan(0);
+    expect(
+      typeof result.returnDisplay === 'string'
+        ? result.returnDisplay.length
+        : 0,
+    ).toBeGreaterThan(0);
     expect(result.llmContent).toContain('successfully');
   });
 
   it('should suppress returnDisplay when quiet mode is enabled for successful writes', async () => {
     // Mock quiet mode as enabled
     quietModeValue = true;
-    
+
     const params = {
       path: testFilePath,
       content: 'test content',
-      
     };
-    
+
     const result = await writeFileTool.call(params);
-    
+
     // In quiet mode, returnDisplay should be empty for successful operations
     expect(result.returnDisplay).toBe('');
     expect(result.llmContent).toContain('successfully');
@@ -116,20 +122,23 @@ describe('WriteFileTool with Quiet Mode', () => {
   it('should still show error messages in quiet mode', async () => {
     // Mock quiet mode as enabled
     quietModeValue = true;
-    
+
     // Try to write to a path that's invalid (like trying to write to a path with a file as a directory)
     const invalidPath = path.join(testFilePath, 'invalid', 'path.txt'); // testFilePath is a file, not a dir
-    
+
     const params = {
       path: invalidPath,
       content: 'test content',
-      
     };
-    
+
     try {
       const result = await writeFileTool.call(params);
       // If no exception was thrown, check that error is still displayed
-      expect(typeof result.returnDisplay === 'string' ? result.returnDisplay.length : 0).toBeGreaterThan(0);
+      expect(
+        typeof result.returnDisplay === 'string'
+          ? result.returnDisplay.length
+          : 0,
+      ).toBeGreaterThan(0);
       expect(result.error).toBeDefined();
     } catch (error) {
       // If an exception was thrown, that's also acceptable behavior
@@ -140,15 +149,14 @@ describe('WriteFileTool with Quiet Mode', () => {
   it('should still return success content to LLM in quiet mode', async () => {
     // Mock quiet mode as enabled
     quietModeValue = true;
-    
+
     const params = {
       path: testFilePath,
       content: 'test content',
-      
     };
-    
+
     const result = await writeFileTool.call(params);
-    
+
     // The LLM content should still contain success information even in quiet mode
     expect(result.llmContent).toContain('successfully');
   });
@@ -156,41 +164,43 @@ describe('WriteFileTool with Quiet Mode', () => {
   it('should work normally when quiet mode is toggled back to disabled', async () => {
     // Mock quiet mode as enabled first
     quietModeValue = true;
-    
+
     const params = {
       path: testFilePath,
       content: 'test content',
-      
     };
-    
+
     let result = await writeFileTool.call(params);
     expect(result.returnDisplay).toBe('');
-    
+
     // Mock quiet mode as disabled
     quietModeValue = false;
     result = await writeFileTool.call(params);
-    
+
     // Now returnDisplay should not be empty
-    expect(typeof result.returnDisplay === 'string' ? result.returnDisplay.length : 0).toBeGreaterThan(0);
+    expect(
+      typeof result.returnDisplay === 'string'
+        ? result.returnDisplay.length
+        : 0,
+    ).toBeGreaterThan(0);
     expect(result.llmContent).toContain('successfully');
   });
 
   it('should properly handle directory creation in quiet mode', async () => {
     // Mock quiet mode as enabled
     quietModeValue = true;
-    
+
     const dirPath = path.join(tempDir, 'newdir', 'test.txt');
     const params = {
       path: dirPath,
       content: 'test content',
-      
     };
-    
+
     const result = await writeFileTool.call(params);
-    
+
     // Check that the file was created
     expect(fs.existsSync(dirPath)).toBe(true);
-    
+
     // In quiet mode, returnDisplay should be empty for successful operations
     expect(result.returnDisplay).toBe('');
     expect(result.llmContent).toContain('successfully');

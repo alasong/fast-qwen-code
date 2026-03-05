@@ -16,9 +16,9 @@
  */
 
 import { describe, it, beforeEach, afterEach, expect, vi } from 'vitest';
-import { SetQuietModeTool } from './set-quiet-mode.js';
 import type { SetQuietModeToolParams } from './set-quiet-mode.js';
-import { Config } from '../config/config.js';
+import { SetQuietModeTool } from './set-quiet-mode.js';
+import type { Config } from '../config/config.js';
 
 describe('SetQuietModeTool', () => {
   let mockConfig: Config;
@@ -30,7 +30,7 @@ describe('SetQuietModeTool', () => {
       getQuietMode: vi.fn(() => false),
       setQuietMode: vi.fn(),
     } as Partial<Config> as Config;
-    
+
     setQuietModeTool = new SetQuietModeTool(mockConfig);
   });
 
@@ -44,21 +44,31 @@ describe('SetQuietModeTool', () => {
 
   it('should have the correct description', () => {
     const description = setQuietModeTool.description;
-    expect(description).toContain('Allows users to dynamically toggle quiet mode');
-    expect(description).toContain('file read/write operations will not display output');
+    expect(description).toContain(
+      'Allows users to dynamically toggle quiet mode',
+    );
+    expect(description).toContain(
+      'file read/write operations will not display output',
+    );
   });
 
   it('should have the correct schema', () => {
     const schema = setQuietModeTool.schema;
-    expect((schema.parametersJsonSchema as any).properties.enabled).toBeDefined();
-    expect((schema.parametersJsonSchema as any).properties.enabled.type).toBe('boolean');
-    expect((schema.parametersJsonSchema as any).required).toContain('enabled');
+    const propertiesJsonSchema = schema.parametersJsonSchema as {
+      properties: Record<string, unknown>;
+      required: string[];
+    };
+    expect(propertiesJsonSchema.properties['enabled']).toBeDefined();
+    expect(
+      (propertiesJsonSchema.properties['enabled'] as { type: string }).type,
+    ).toBe('boolean');
+    expect(propertiesJsonSchema.required).toContain('enabled');
   });
 
   describe('execution', () => {
     it('should enable quiet mode when enabled=true', async () => {
       const params: SetQuietModeToolParams = { enabled: true };
-      
+
       const result = await setQuietModeTool.call(params);
 
       expect(mockConfig.setQuietMode).toHaveBeenCalledWith(true);
@@ -68,7 +78,7 @@ describe('SetQuietModeTool', () => {
 
     it('should disable quiet mode when enabled=false', async () => {
       const params: SetQuietModeToolParams = { enabled: false };
-      
+
       const tool = new SetQuietModeTool(mockConfig);
       const result = await tool.call(params);
 
@@ -82,7 +92,9 @@ describe('SetQuietModeTool', () => {
       const result = await setQuietModeTool.call(params);
 
       expect(result.llmContent).toContain('Quiet mode has been enabled');
-      expect(result.llmContent).toContain('File operations will not display output');
+      expect(result.llmContent).toContain(
+        'File operations will not display output',
+      );
       expect(result.returnDisplay).toContain('Quiet mode has been enabled');
     });
 
@@ -91,7 +103,9 @@ describe('SetQuietModeTool', () => {
       const result = await setQuietModeTool.call(params);
 
       expect(result.llmContent).toContain('Quiet mode has been disabled');
-      expect(result.llmContent).toContain('File operations will display output');
+      expect(result.llmContent).toContain(
+        'File operations will display output',
+      );
       expect(result.returnDisplay).toContain('Quiet mode has been disabled');
     });
   });
